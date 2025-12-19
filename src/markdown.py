@@ -1,8 +1,11 @@
 from textnode import TextNode, TextType
-
+import re
 
 def split_nodes_delimiter(old_nodes, delimiter, text_type):
     new_nodes = []
+    if not isinstance(old_nodes, list):
+        raise ValueError("old_nodes value must be a list")
+
     for node in old_nodes:
         new_node = []
 
@@ -25,24 +28,72 @@ def split_nodes_delimiter(old_nodes, delimiter, text_type):
         
         for index, section in enumerate(sections):
 
-            if index == 0 and section == "":
+            if section == "":
                 continue
             elif index % 2 == 0:
                 new_node.append(TextNode(section, TextType.TEXT))
             else:
                 new_node.append(TextNode(section, inner_type))
-
         new_nodes.extend(new_node)
     return new_nodes
 
 
+def extract_markdown_images(text):
+    text_url_list =  re.findall(r"!\[([^\[\]]*)\]\(([^\(\)]*)\)", text)
+    return text_url_list
 
 
-# bold_nodes = split_nodes_delimiter(nodes, "**", TextType.BOLD)
+def extract_markdown_links(text):
+    markdown_link = re.findall(r"(?<!!)\[([^\[\]]*)\]\(([^\(\)]*)\)", text)
+    return markdown_link
 
-# for n in bold_nodes:
-#     print(n)
-# bold_texts = [node.text for node in bold_nodes if node.text_type == TextType.BOLD]
-# print(bold_texts)
+
+def split_nodes_links(old_nodes):
+    pass
+
+
+
+nodes = [
+    TextNode("This is text", TextType.TEXT,), 
+    TextNode("This is text and ![rick roll](https://i.imgur.com/aKaOqIh.gif)", TextType.TEXT,),
+    TextNode("This is text with a ![rick roll](https://i.imgur.com/aKaOqIh.gif) and ![obi wan](https://i.imgur.com/fJRm4Vk.jpeg)", TextType.TEXT,)
+    ]
+node = TextNode("This is text a ![rick roll](https://i.imgur.com/aKaOqIh.gif)",TextType.TEXT,)
+node_none = TextNode("This is text with a",TextType.TEXT,)
+node_one = TextNode("This is text a ![rick roll](https://i.imgur.com/aKaOqIh.gif)", TextType.TEXT, )
+node_two = TextNode(
+    "This is text with a ![rick roll](https://i.imgur.com/aKaOqIh.gif) and ![obi wan](https://i.imgur.com/fJRm4Vk.jpeg)",
+    TextType.TEXT,)
+
+
+def split_nodes_image(old_nodes):
+    new_nodes = []
+
+    for node in old_nodes:
+        original_text = node.text
+
+        if original_text == "":
+            continue
+        if extract_markdown_images(original_text) == []:
+            new_nodes.append(node)
+            continue
+
+        node_sections = []
+        image_alt_and_urls = extract_markdown_images(original_text)
+
+        text = original_text
+        for image in image_alt_and_urls:
+            image_alt = image[0]
+            image_link = image[1]
+            sections = text.split(f"![{image_alt}]({image_link})", 1)
+            node_sections.append(TextNode(f"{sections[0]}", TextType.TEXT))
+            node_sections.append(TextNode(f"{image_alt}", TextType.IMAGE, f"{image_link}"))
+            text = sections[1]
+
+        new_nodes.extend(node_sections)
+    return new_nodes
+
+
+print(split_nodes_image([node]))
 
 
