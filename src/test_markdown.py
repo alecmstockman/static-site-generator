@@ -1,38 +1,328 @@
 import unittest
-from markdown import split_nodes_delimiter
+from markdown import split_nodes_delimiter, extract_markdown_images, extract_markdown_links, split_nodes_images, split_nodes_links
 from textnode import TextNode, TextType
 
 class TestMarkdown(unittest.TestCase):
-    def SetUp(self):
-        nodes = [
+    def setUp(self):
+        self.original_nodes = [
             TextNode("This is text with a `code block` word", TextType.TEXT), 
             TextNode("This is text with a **bold words block** word", TextType.TEXT), 
             TextNode("**This** is text with two **bold words** blocks", TextType.TEXT), 
             TextNode("This is text with a _italic_ block word", TextType.TEXT)
             ]
+        self.nodes = self.original_nodes.copy()
 
-    def test_code_one_block(self):
-        # node = TextNode("This is text with a `code block` word", TextType.TEXT)
-        split_node = split_nodes_delimiter(node, '`', TextType.TEXT)
-        self.assertEqual(split_node,
-        [TextNode("This is text with a ", TextType.TEXT, None), TextNode("code block", TextType.CODE, None), TextNode(" word", TextType.TEXT, None)])
+        self.original_image_nodes = [
+            TextNode("", TextType.TEXT,), 
+            TextNode("This is text", TextType.TEXT,), 
+            TextNode("This is text and ![rick roll](https://i.imgur.com/aKaOqIh.gif)", TextType.TEXT,), 
+            TextNode("This is text and [rick roll](https://i.imgur.com/aKaOqIh.gif)", TextType.TEXT,),
+            TextNode("This is text and ![rick roll](https://i.imgur.com/aKaOqIh.gif)", TextType.BOLD,), 
+            TextNode("![rick roll](https://i.imgur.com/aKaOqIh.gif) Random Text Here", TextType.TEXT,), 
+            TextNode("This is text with a ![rick roll](https://i.imgur.com/aKaOqIh.gif) and ![obi wan](https://i.imgur.com/fJRm4Vk.jpeg)", TextType.TEXT,), 
+            TextNode("This is text with a link [to boot dev](https://www.boot.dev)", TextType.TEXT,)
+            ]
+        self.image_nodes = self.original_image_nodes.copy()
 
-    # def test_code_two_blocks(self):
-    #     node = TextNode("This is text with one `code block` word and another `code block` word", TextType.TEXT)
-    #     split_node = split_nodes_delimiter(node, '`', TextType.TEXT)
-    #     self.assertEqual(
-    #         split_node, [
-    #             TextNode("This is text with one ", TextType.TEXT, None), 
-    #             TextNode("code block", TextType.CODE, None), 
-    #             TextNode(" word and another ", TextType.TEXT, None), 
-    #             TextNode("code block", TextType.CODE, None), 
-    #             TextNode(" word", TextType.TEXT, None)
-    #             ]
-    #             )
+        self.original_link_nodes = [
+            TextNode("", TextType.TEXT,), 
+            TextNode("This is text", TextType.TEXT,), 
+            TextNode("This is text with a link [to boot dev](https://www.boot.dev)", TextType.TEXT,), 
+            TextNode("This is text with a link ![to boot dev](https://www.boot.dev)", TextType.TEXT,), 
+            TextNode("This is text with a link [to boot dev](https://www.boot.dev)", TextType.BOLD,), 
+            TextNode("This is text with a link ![to boot dev](https://www.boot.dev)", TextType.BOLD,), 
+            TextNode("This is text with a link [to boot dev](https://www.boot.dev) and [to youtube](https://www.youtube.com/@bootdotdev)", TextType.TEXT,), 
+            TextNode("[to boot dev](https://www.boot.dev) and another link: [to youtube](https://www.youtube.com/@bootdotdev)", TextType.TEXT,), 
+            TextNode("This is text a ![rick roll](https://i.imgur.com/aKaOqIh.gif)", TextType.TEXT, ), 
+            TextNode("[to boot dev](https://www.boot.dev) Random Text Here", TextType.TEXT,), 
+            ]
+        self.link_nodes = self.original_link_nodes.copy()
 
-    # def test_code_two_blocks_invalid(self):
-    #     node = TextNode("This is text with one code block` word and another `code block` word", TextType.TEXT)
-    #     with self.assertRaises(Exception) as cm:
-    #         split_nodes_delimiter(node, '`', TextType.TEXT)
-    #     self.assertIn("Invalid markdown text", str(cm.exception))
 
+
+    def tearDown(self):
+        self.nodes = self.original_nodes.copy()
+        self.image_nodes = self.original_image_nodes.copy()
+        self.original_link_nodes = self.original_image_nodes.copy()
+
+    def test_bold(self):
+        split_node = split_nodes_delimiter(self.nodes, '**', TextType.BOLD)
+        self.assertEqual(
+            split_node, [
+                TextNode("This is text with a `code block` word", TextType.TEXT, None), 
+                TextNode("This is text with a ", TextType.TEXT, None),
+                TextNode("bold words block", TextType.BOLD, None), 
+                TextNode(" word", TextType.TEXT, None), 
+                TextNode("This", TextType.BOLD, None), 
+                TextNode(" is text with two ", TextType.TEXT, None), 
+                TextNode("bold words", TextType.BOLD, None), 
+                TextNode(" blocks", TextType.TEXT, None), 
+                TextNode("This is text with a _italic_ block word", TextType.TEXT, None)
+                ]
+            )
+        
+    def test_one_bold_word(self):
+        n = TextNode("**bold**", TextType.TEXT)
+        split_node = split_nodes_delimiter([n], '**', TextType.BOLD)
+        self.assertEqual(split_node, [TextNode("bold", TextType.BOLD, None)])
+
+    def test_one_bold_word_adjacent_word(self):
+        n = TextNode("There is one **bold**word", TextType.TEXT)
+        split_node = split_nodes_delimiter([n], '**', TextType.BOLD)
+        self.assertEqual(
+            split_node, [
+                TextNode("There is one ", TextType.TEXT, None), 
+                TextNode("bold", TextType.BOLD, None), 
+                TextNode("word", TextType.TEXT, None)
+                ]
+                )
+
+    def test_not_equal_bold_word_one_delimiter(self):
+        n = TextNode("This is a **bold word", TextType.TEXT)
+        with self.assertRaises(ValueError) as cm:
+            split_nodes_delimiter([n], "**", TextType.TEXT)
+        self.assertIn("Invalid markdown, unmatched delimiter", str(cm.exception))
+
+    def test_two_bold_words(self):
+        n = TextNode("**bold** word is a **bold** word", TextType.TEXT)
+        split_node = split_nodes_delimiter([n], '**', TextType.BOLD)
+        self.assertEqual(
+            split_node, [
+                TextNode("bold", TextType.BOLD, None), 
+                TextNode(" word is a ", TextType.TEXT, None), 
+                TextNode("bold", TextType.BOLD, None), 
+                TextNode(" word", TextType.TEXT, None)
+                ]
+                )
+        
+    def test_two_bold_words_together(self):
+        n = TextNode("**bold** **word** is a bold word", TextType.TEXT)
+        split_node = split_nodes_delimiter([n], '**', TextType.BOLD)
+        self.assertEqual(
+            split_node, [
+                TextNode("bold", TextType.BOLD, None), 
+                TextNode(" ", TextType.TEXT, None), 
+                TextNode("word", TextType.BOLD, None), 
+                TextNode(" is a bold word", TextType.TEXT, None)
+                ]
+                )
+
+    def test_italic_with_bold(self):
+        n = TextNode("**bold** and _italic_ word", TextType.TEXT)
+        split_node = split_nodes_delimiter([n], '_', TextType.ITALIC)
+        self.assertEqual(
+            split_node, [
+                TextNode("**bold** and ", TextType.TEXT, None), 
+                TextNode("italic", TextType.ITALIC, None), 
+                TextNode(" word", TextType.TEXT, None)
+                ]
+                )
+
+    def test_code(self):
+        split_node = split_nodes_delimiter(self.nodes, '`', TextType.CODE)
+        self.assertEqual(
+            split_node, [
+                TextNode("This is text with a ", TextType.TEXT, None), 
+                TextNode("code block", TextType.CODE, None), 
+                TextNode(" word", TextType.TEXT, None), 
+                TextNode("This is text with a **bold words block** word", TextType.TEXT, None), 
+                TextNode("**This** is text with two **bold words** blocks", TextType.TEXT, None), 
+                TextNode("This is text with a _italic_ block word", TextType.TEXT, None)
+                ]
+                )
+        
+    def test_two_code_words(self):
+        n = TextNode("`bold` word is a `bold` word", TextType.TEXT)
+        split_node = split_nodes_delimiter([n], '`', TextType.CODE)
+        self.assertEqual(
+            split_node, [
+                TextNode("bold", TextType.CODE, None), 
+                TextNode(" word is a ", TextType.TEXT, None),
+                TextNode("bold", TextType.CODE, None), 
+                TextNode(" word", TextType.TEXT, None)
+                ]
+                )
+        
+    def test_italic(self):
+        split_node = split_nodes_delimiter(self.nodes, '_', TextType.ITALIC)
+        self.assertEqual(
+            split_node, [
+                TextNode("This is text with a `code block` word", TextType.TEXT, None), 
+                TextNode("This is text with a **bold words block** word", TextType.TEXT, None), 
+                TextNode("**This** is text with two **bold words** blocks", TextType.TEXT, None), 
+                TextNode("This is text with a ", TextType.TEXT, None), 
+                TextNode("italic", TextType.ITALIC, None), 
+                TextNode(" block word", TextType.TEXT, None)
+                ]
+                )
+
+    def test_two_italic_words(self):
+        n = TextNode("_italic_ word is a _italic_ word", TextType.TEXT)
+        split_node = split_nodes_delimiter([n], '_', TextType.ITALIC)
+        self.assertEqual(
+            split_node, [
+                TextNode("italic", TextType.ITALIC, None), 
+                TextNode(" word is a ", TextType.TEXT, None),
+                TextNode("italic", TextType.ITALIC, None), 
+                TextNode(" word", TextType.TEXT, None)
+                ]
+                )
+
+    def test_no_delimiter(self):
+        node = TextNode("This is text with one code block` word and another `code block` word", TextType.TEXT)
+        with self.assertRaises(ValueError) as cm:
+            split_nodes_delimiter([node], "", TextType.TEXT)
+        self.assertIn("empty separator", str(cm.exception))
+
+    def test_old_nodes_invalid_text_type(self):
+        node = TextNode("This is text with one code block` word and another `code block` word", TextType.TEXT)
+        with self.assertRaises(ValueError) as cm:
+            split_nodes_delimiter([node], "_", TextType.TEXT)
+        self.assertIn(f"Unsupported text_type: {node.text_type}", str(cm.exception))
+
+    def test_non_text_nodes_untouched(self):
+        n = TextNode("**already bold**", TextType.BOLD)
+        split_node = split_nodes_delimiter([n], '**', TextType.BOLD)
+        self.assertEqual(split_node, [n])
+
+    def test_multiple_text_nodes_each_split(self):
+        n1 = TextNode("One `code` here", TextType.TEXT)
+        n2 = TextNode("And `code` there", TextType.TEXT)
+        split_node = split_nodes_delimiter([n1, n2], '`', TextType.CODE)
+        self.assertEqual(
+            split_node,
+            [
+                TextNode("One ", TextType.TEXT, None),
+                TextNode("code", TextType.CODE, None),
+                TextNode(" here", TextType.TEXT, None),
+                TextNode("And ", TextType.TEXT, None),
+                TextNode("code", TextType.CODE, None),
+                TextNode(" there", TextType.TEXT, None),
+            ],
+        )
+
+    def test_unmatched_closing_delimiter(self):
+        n = TextNode("This is a bold** word", TextType.TEXT)
+        with self.assertRaises(ValueError):
+            split_nodes_delimiter([n], "**", TextType.BOLD)
+
+    def test_delimiter_at_start_with_trailing_text(self):
+        n = TextNode("**bold** and more", TextType.TEXT)
+        split_node = split_nodes_delimiter([n], '**', TextType.BOLD)
+        self.assertEqual(
+            split_node,
+            [
+                TextNode("bold", TextType.BOLD, None),
+                TextNode(" and more", TextType.TEXT, None),
+            ],
+        )
+
+    def test_multiple_split_node_delimiter(self):
+        n = TextNode("There text has a **bold**, _italic_, and a `code` word", TextType.TEXT)
+        nodes = [n]
+        nodes = split_nodes_delimiter(nodes, "`", TextType.CODE)
+        nodes = split_nodes_delimiter(nodes, "**", TextType.BOLD)
+        nodes = split_nodes_delimiter(nodes, "_", TextType.ITALIC)
+        self.assertEqual(
+            nodes, [
+                TextNode("There text has a ", TextType.TEXT, None), 
+                TextNode("bold", TextType.BOLD, None), 
+                TextNode(", ", TextType.TEXT, None), 
+                TextNode("italic", TextType.ITALIC, None), 
+                TextNode(", and a ", TextType.TEXT, None), 
+                TextNode("code", TextType.CODE, None), 
+                TextNode(" word", TextType.TEXT, None)
+                ]
+            )
+
+    def test_markdown_images(self):
+        image_text = "This is text with a ![rick roll](https://i.imgur.com/aKaOqIh.gif) and ![obi wan](https://i.imgur.com/fJRm4Vk.jpeg)"
+        markdown_images = extract_markdown_images(image_text)
+        self.assertEqual(markdown_images, [('rick roll', 'https://i.imgur.com/aKaOqIh.gif'), ('obi wan', 'https://i.imgur.com/fJRm4Vk.jpeg')])
+
+    def test_markdown_links(self):
+        link_text = "This is text with a link [to boot dev](https://www.boot.dev) and [to youtube](https://www.youtube.com/@bootdotdev)"
+        markdown_images = extract_markdown_links(link_text)
+        self.assertEqual(markdown_images, [('to boot dev', 'https://www.boot.dev'), ('to youtube', 'https://www.youtube.com/@bootdotdev')])
+
+    def test_no_images(self):
+        text = "Just some text with no images or links."
+        self.assertEqual(extract_markdown_images(text), [])
+
+    def test_no_links(self):
+        text = "Just some text with ![an image](https://img.com/x.png)"
+        self.assertEqual(extract_markdown_links(text), [])
+
+    def test_images_not_counted_as_links(self):
+        text = "Look ![alt](https://img.com/x.png) and [link](https://example.com)"
+        self.assertEqual(
+            extract_markdown_links(text),
+            [("link", "https://example.com")]
+        )
+
+    def test_mixed_images_and_links(self):
+        text = "![img1](url1) [link1](url2) ![img2](url3) [link2](url4)"
+        self.assertEqual(
+            extract_markdown_images(text),
+            [("img1", "url1"), ("img2", "url3")]
+        )
+        self.assertEqual(
+            extract_markdown_links(text),
+            [("link1", "url2"), ("link2", "url4")]
+        )
+
+    def test_empty_alt_and_link_text(self):
+        text = "![](img.png) [](link.html)"
+        self.assertEqual(extract_markdown_images(text), [("", "img.png")])
+        self.assertEqual(extract_markdown_links(text), [("", "link.html")])
+
+
+#---------------------------------SPLIT NODES IMAGES-------------------------------------
+    def test_split_nodes_images(self):
+        split_images = split_nodes_images(self.original_image_nodes)
+        self.assertEqual(
+            split_images, [                
+                TextNode("This is text", TextType.TEXT, None), 
+                TextNode("This is text and ", TextType.TEXT, None), 
+                TextNode("rick roll", TextType.IMAGE, "https://i.imgur.com/aKaOqIh.gif"), 
+                TextNode("This is text and [rick roll](https://i.imgur.com/aKaOqIh.gif)", TextType.TEXT, None), 
+                TextNode("This is text and ![rick roll](https://i.imgur.com/aKaOqIh.gif)", TextType.BOLD, None), 
+                TextNode("rick roll", TextType.IMAGE, "https://i.imgur.com/aKaOqIh.gif"), 
+                TextNode(" Random Text Here", TextType.TEXT, None), 
+                TextNode("This is text with a ", TextType.TEXT, None), 
+                TextNode("rick roll", TextType.IMAGE, "https://i.imgur.com/aKaOqIh.gif"), 
+                TextNode(" and ", TextType.TEXT, None), 
+                TextNode("obi wan", TextType.IMAGE, "https://i.imgur.com/fJRm4Vk.jpeg"), 
+                TextNode("This is text with a link [to boot dev](https://www.boot.dev)", TextType.TEXT, None), 
+                ]
+            )
+
+
+#---------------------------------SPLIT NODES LINKS--------------------------------------
+    def test_split_nodes_links(self):
+        split_links = split_nodes_links(self.original_link_nodes)
+        self.assertEqual(
+            split_links, 
+               [
+                TextNode("This is text", TextType.TEXT, None), 
+                TextNode("This is text with a link ", TextType.TEXT, None), 
+                TextNode("to boot dev", TextType.LINK, "https://www.boot.dev"), 
+                TextNode("This is text with a link ![to boot dev](https://www.boot.dev)", TextType.TEXT, None), 
+                TextNode("This is text with a link [to boot dev](https://www.boot.dev)", TextType.BOLD, None), 
+                TextNode("This is text with a link ![to boot dev](https://www.boot.dev)", TextType.BOLD, None), 
+                TextNode("This is text with a link ", TextType.TEXT, None), 
+                TextNode("to boot dev", TextType.LINK, "https://www.boot.dev"), 
+                TextNode(" and ", TextType.TEXT, None), 
+                TextNode("to youtube", TextType.LINK, "https://www.youtube.com/@bootdotdev"), 
+                TextNode("to boot dev", TextType.LINK, "https://www.boot.dev"), 
+                TextNode(" and another link: ", TextType.TEXT, None), 
+                TextNode("to youtube", TextType.LINK, "https://www.youtube.com/@bootdotdev"), 
+                TextNode("This is text a ![rick roll](https://i.imgur.com/aKaOqIh.gif)", TextType.TEXT, None), 
+                TextNode("to boot dev", TextType.LINK, "https://www.boot.dev"), 
+                TextNode(" Random Text Here", TextType.TEXT, None)
+                ]
+            )
+
+
+
+    

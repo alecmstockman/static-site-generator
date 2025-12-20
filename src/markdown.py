@@ -8,12 +8,11 @@ def split_nodes_delimiter(old_nodes, delimiter, text_type):
 
     for node in old_nodes:
         new_node = []
+        sections = node.text.split(delimiter)
 
         if node.text_type != TextType.TEXT:
             new_nodes.append(node)
             continue
-
-        sections = node.text.split(delimiter)
         if len(sections) % 2 == 0:
             raise ValueError("Invalid markdown, unmatched delimiter")
         
@@ -27,7 +26,6 @@ def split_nodes_delimiter(old_nodes, delimiter, text_type):
             raise ValueError(f"Unsupported text_type: {text_type}")
         
         for index, section in enumerate(sections):
-
             if section == "":
                 continue
             elif index % 2 == 0:
@@ -48,30 +46,14 @@ def extract_markdown_links(text):
     return markdown_link
 
 
-def split_nodes_links(old_nodes):
-    pass
-
-
-
-nodes = [
-    TextNode("This is text", TextType.TEXT,), 
-    TextNode("This is text and ![rick roll](https://i.imgur.com/aKaOqIh.gif)", TextType.TEXT,),
-    TextNode("This is text with a ![rick roll](https://i.imgur.com/aKaOqIh.gif) and ![obi wan](https://i.imgur.com/fJRm4Vk.jpeg)", TextType.TEXT,)
-    ]
-node = TextNode("This is text a ![rick roll](https://i.imgur.com/aKaOqIh.gif)",TextType.TEXT,)
-node_none = TextNode("This is text with a",TextType.TEXT,)
-node_one = TextNode("This is text a ![rick roll](https://i.imgur.com/aKaOqIh.gif)", TextType.TEXT, )
-node_two = TextNode(
-    "This is text with a ![rick roll](https://i.imgur.com/aKaOqIh.gif) and ![obi wan](https://i.imgur.com/fJRm4Vk.jpeg)",
-    TextType.TEXT,)
-
-
-def split_nodes_image(old_nodes):
+def split_nodes_images(old_nodes):
     new_nodes = []
 
     for node in old_nodes:
         original_text = node.text
-
+        if node.text_type != TextType.TEXT:
+            new_nodes.append(node)
+            continue
         if original_text == "":
             continue
         if extract_markdown_images(original_text) == []:
@@ -80,20 +62,51 @@ def split_nodes_image(old_nodes):
 
         node_sections = []
         image_alt_and_urls = extract_markdown_images(original_text)
-
         text = original_text
         for image in image_alt_and_urls:
             image_alt = image[0]
             image_link = image[1]
             sections = text.split(f"![{image_alt}]({image_link})", 1)
-            node_sections.append(TextNode(f"{sections[0]}", TextType.TEXT))
+            if sections[0] != '':
+                node_sections.append(TextNode(f"{sections[0]}", TextType.TEXT))
             node_sections.append(TextNode(f"{image_alt}", TextType.IMAGE, f"{image_link}"))
             text = sections[1]
+        if text != "":
+            node_sections.append(TextNode(text, TextType.TEXT))
 
         new_nodes.extend(node_sections)
     return new_nodes
 
 
-print(split_nodes_image([node]))
 
+def split_nodes_links(old_nodes):
+    new_nodes = []
 
+    for node in old_nodes:
+        # print(node)
+        original_text = node.text
+        if node.text_type != TextType.TEXT:
+            new_nodes.append(node)
+            continue
+        if original_text == "":
+            continue
+        if extract_markdown_links(original_text) == []:
+            new_nodes.append(node)
+            continue
+
+        node_sections = []
+        link_desc_and_urls = extract_markdown_links(original_text)
+        text = original_text
+        for link in link_desc_and_urls:
+            link_desc = link[0]
+            link_url = link[1]
+            sections = text.split(f"[{link_desc}]({link_url})", 1)
+            if sections[0] != '':
+                node_sections.append(TextNode(f"{sections[0]}", TextType.TEXT))
+            node_sections.append(TextNode(f"{link_desc}", TextType.LINK, f"{link_url}"))
+            text = sections[1]
+        if text != "":
+            node_sections.append(TextNode(text, TextType.TEXT))
+
+        new_nodes.extend(node_sections)
+    return new_nodes
