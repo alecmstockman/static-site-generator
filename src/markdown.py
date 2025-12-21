@@ -1,5 +1,6 @@
 from textnode import TextNode, TextType
 import re
+from enum import Enum
 
 def split_nodes_delimiter(old_nodes, delimiter, text_type):
     new_nodes = []
@@ -110,3 +111,81 @@ def split_nodes_links(old_nodes):
 
         new_nodes.extend(node_sections)
     return new_nodes
+
+
+def text_to_textnode(text):
+    text_node = TextNode(text, TextType.TEXT)
+    split_code_result = split_nodes_delimiter([text_node], "`", TextType.CODE)
+    split_bold_result = split_nodes_delimiter(split_code_result, "**", TextType.BOLD)
+    split_italic_result = split_nodes_delimiter(split_bold_result, "_", TextType.ITALIC)
+    split_images_result = split_nodes_images(split_italic_result)
+    return split_nodes_links(split_images_result)
+
+
+def markdown_to_blocks(text):
+    split_lines = text.split("\n\n")
+    block = []
+    for line in split_lines:
+        if line != "":
+            block.append(line.strip())
+    return(block)
+
+
+class BlockType(Enum):
+    PARAGRAPH = "paragraph"
+    HEADING = "heading"
+    CODE = "code"
+    QUOTE = "quote"
+    UNORDERED_LIST = "unordered_list"
+    ORDERED_LIST = "ordered_list"
+
+
+def block_to_blocktype(block):
+    if block.startswith(("# ", "## ", "### ", "#### ", "##### ", "###### ")):
+        return BlockType.HEADING
+    
+    if block.startswith("```") and block.endswith("```"):
+        return BlockType.CODE
+    
+    if block.startswith(">"):
+        lines = block.split("\n")
+        for line in lines:
+            line = line.strip()
+            if not line:
+                continue
+            if line.startswith(">"):
+                continue
+            else:
+                return BlockType.PARAGRAPH
+        return BlockType.QUOTE
+    
+    if block.startswith("- "):
+        lines = block.split("\n")
+        for line in lines:
+            line = line.strip()
+            if not line:
+                continue
+            if line.startswith("- "):
+                continue
+            else:
+                return BlockType.PARAGRAPH    
+        return BlockType.UNORDERED_LIST
+    
+    if block.startswith("1. "):
+        index = 1
+        lines = block.split("\n") 
+        for line in lines:
+            line = line.strip()
+            if not line:
+                continue
+            if line.startswith(f"{index}. "):
+                index += 1
+            else:
+                return BlockType.PARAGRAPH
+        return BlockType.ORDERED_LIST
+
+    else:
+        return BlockType.PARAGRAPH
+
+# print(block_to_blocktype(unordered_text))
+

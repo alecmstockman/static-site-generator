@@ -1,6 +1,7 @@
 import unittest
-from markdown import split_nodes_delimiter, extract_markdown_images, extract_markdown_links, split_nodes_images, split_nodes_links
+from markdown import BlockType, block_to_blocktype, split_nodes_delimiter, extract_markdown_images, extract_markdown_links, split_nodes_images, split_nodes_links, text_to_textnode, markdown_to_blocks
 from textnode import TextNode, TextType
+import textwrap
 
 class TestMarkdown(unittest.TestCase):
     def setUp(self):
@@ -37,6 +38,18 @@ class TestMarkdown(unittest.TestCase):
             TextNode("[to boot dev](https://www.boot.dev) Random Text Here", TextType.TEXT,), 
             ]
         self.link_nodes = self.original_link_nodes.copy()
+
+        self.original_split_lines_text = textwrap.dedent("""
+            # This is a heading
+
+            This is a paragraph of text. It has some **bold** and _italic_ words inside of it.
+
+            - This is the first list item in a list block
+            - This is a list item
+            - This is another list item
+        """).strip()
+
+        self.split_lines_text = self.original_split_lines_text
 
 
 
@@ -277,7 +290,8 @@ class TestMarkdown(unittest.TestCase):
         self.assertEqual(extract_markdown_links(text), [("", "link.html")])
 
 
-#---------------------------------SPLIT NODES IMAGES-------------------------------------
+# -------- SPLIT NODES IMAGES --------
+
     def test_split_nodes_images(self):
         split_images = split_nodes_images(self.original_image_nodes)
         self.assertEqual(
@@ -298,7 +312,8 @@ class TestMarkdown(unittest.TestCase):
             )
 
 
-#---------------------------------SPLIT NODES LINKS--------------------------------------
+# -------- SPLIT NODES LINKS --------
+
     def test_split_nodes_links(self):
         split_links = split_nodes_links(self.original_link_nodes)
         self.assertEqual(
@@ -324,5 +339,154 @@ class TestMarkdown(unittest.TestCase):
             )
 
 
+# -------- FULL MAKRDONW TO TEXTNODE  --------
 
+    def test_of_text_to_textnode(self):
+        final_node = "This is **text** with an _italic_ word and a `code block` and an ![obi wan image](https://i.imgur.com/fJRm4Vk.jpeg) and a [link](https://boot.dev)"
+        result = text_to_textnode(final_node)
+        self.assertEqual(
+            result, [
+                TextNode("This is ", TextType.TEXT, None), 
+                TextNode("text", TextType.BOLD, None), 
+                TextNode(" with an ", TextType.TEXT, None), 
+                TextNode("italic", TextType.ITALIC, None), 
+                TextNode(" word and a ", TextType.TEXT, None), 
+                TextNode("code block", TextType.CODE, None), 
+                TextNode(" and an ", TextType.TEXT, None), 
+                TextNode("obi wan image", TextType.IMAGE, "https://i.imgur.com/fJRm4Vk.jpeg"), 
+                TextNode(" and a ", TextType.TEXT, None), 
+                TextNode("link", TextType.LINK, "https://boot.dev"), 
+                ] 
+            )
     
+
+# -------- FULL MAKRDONW TO BLOCKS --------
+
+    def test_markdown_to_blocks(self):
+        block_text = markdown_to_blocks(self.original_split_lines_text)
+        self.assertEqual(
+            block_text, [
+                '# This is a heading', 
+                'This is a paragraph of text. It has some **bold** and _italic_ words inside of it.', 
+                '- This is the first list item in a list block\n- This is a list item\n- This is another list item'
+                ]
+                )
+        
+# -------- BLOCK TO BLOCKTYPE  --------
+
+    def test_blocktype_heading(self):
+        heading_text = "# Some heading text here"
+        self.assertEqual(BlockType.HEADING, block_to_blocktype(heading_text))
+    
+    def test_blocktype_heading_six(self):
+        heading_text_six = "###### Some heading text here"
+        self.assertEqual(BlockType.HEADING, block_to_blocktype(heading_text_six))
+
+    def test_notequal_blocktype_heading_no_space(self):
+        heading_text_no_space = "###Some heading text here"
+        self.assertNotEqual(BlockType.HEADING, block_to_blocktype(heading_text_no_space))
+
+    def test_notequal_blocktype_heading_seven(self):
+        heading_text_seven = "####### Some heading text here"
+        self.assertNotEqual(BlockType.HEADING, block_to_blocktype(heading_text_seven))
+
+
+    def test_blocktype_code(self):
+        code_text = "```This is a code block```"
+        self.assertEqual(BlockType.CODE, block_to_blocktype(code_text))
+
+    def test_blocktype_code_spaces(self):
+        code_text_spaces = "``` This is a code block ```"
+        self.assertEqual(BlockType.CODE, block_to_blocktype(code_text_spaces))
+
+    def test_blocktype_code_no_postfix(self):
+        code_text_no_postfix = "```This is a code block"
+        self.assertEqual(BlockType.PARAGRAPH, block_to_blocktype(code_text_no_postfix))
+
+    def test_blocktype_code_no_prefix(self):
+        code_text_no_prefix = "This is a code block```"
+        self.assertEqual(BlockType.PARAGRAPH, block_to_blocktype(code_text_no_prefix))
+
+
+    def test_blocktype_quote(self):
+        quote_text = ">This is a quote block"
+        self.assertEqual(BlockType.QUOTE, block_to_blocktype(quote_text))
+
+    def test_blocktype_quote_multiple_lines(self):
+        quote_text_mulitple = ">This is a quote block \n>More Text \n>Even more Text"
+        self.assertEqual(BlockType.QUOTE, block_to_blocktype(quote_text_mulitple))
+
+    def test_blocktype_quote_empty_line(self):
+        quote_text_empty_line = ">This is a quote block \n\n>More Text \n>Even more Text"
+        self.assertEqual(BlockType.QUOTE, block_to_blocktype(quote_text_empty_line))
+
+    def test_blocktype_quote_paragraph(self):
+        quote_text_paragraph = "This is a quote block"
+        self.assertEqual(BlockType.PARAGRAPH, block_to_blocktype(quote_text_paragraph))
+
+    def test_notequal_blocktype_quote_wrong_symbol(self):
+        quote_text_wrong = "<This is a quote block"
+        self.assertNotEqual(BlockType.QUOTE, block_to_blocktype(quote_text_wrong))
+
+
+    def test_blocktype_unordered(self):
+        unordered_text = "- Aragon, Gimli, Legolas, Frodo, Sam, Pippin, Merry"
+        self.assertEqual(BlockType.UNORDERED_LIST, block_to_blocktype(unordered_text))
+
+    def test_blocktype_unordered_multiple_lines(self):
+        unordered_text_multi_line = "- Aragon \n- Gimli\n- Legolas\n- Frodo\n- Sam\n- Pippin\n- Merry"
+        self.assertEqual(BlockType.UNORDERED_LIST, block_to_blocktype(unordered_text_multi_line))
+
+    def test_blocktype_unordered_no_space(self):
+        unordered_text_no_space = "- Aragon \n-Gimli\n- Legolas\n- Frodo\n- Sam\n- Pippin\n- Merry"
+        self.assertEqual(BlockType.PARAGRAPH, block_to_blocktype(unordered_text_no_space))
+
+    def test_notequal_blocktype_unordered(self):
+        unordered_text = "- Aragon \n- Gimli\n- Legolas\n- Frodo\n- Sam\n- Pippin\n Merry"
+        self.assertNotEqual(BlockType.UNORDERED_LIST, block_to_blocktype(unordered_text))
+
+    def test_blocktype_unordered_with_blank_line(self):
+        text = "- one\n\n- two"
+        self.assertEqual(BlockType.UNORDERED_LIST, block_to_blocktype(text))
+    
+
+    def test_blocktype_ordered(self):
+        ordered_text = "1. First line in the list"
+        self.assertEqual(BlockType.ORDERED_LIST, block_to_blocktype(ordered_text))
+
+    def test_blocktype_ordered_two_lines(self):
+        ordered_text_two_lines = "1. First line in the list \n2. Second Line"
+        self.assertEqual(BlockType.ORDERED_LIST, block_to_blocktype(ordered_text_two_lines))
+
+    def test_blocktype_ordered_multi_lines(self):
+        ordered_text_multi_line = "1. First line in the list \n2. Second Line\n3. Third Line"
+        self.assertEqual(BlockType.ORDERED_LIST, block_to_blocktype(ordered_text_multi_line))
+
+    def test_blocktype_missing_dot(self):
+        ordered_text_missing_dot = "1. First line in the list \n2 Second Line\n3. Third Line"
+        self.assertEqual(BlockType.PARAGRAPH, block_to_blocktype(ordered_text_missing_dot))
+
+    def test_blocktype_ordered_wrong_increment(self):
+        text = "1. one\n3. three"
+        self.assertEqual(BlockType.PARAGRAPH, block_to_blocktype(text))
+
+    def test_blocktype_ordered_with_blank_line(self):
+        text = "1. one\n\n2. two"
+        self.assertEqual(BlockType.ORDERED_LIST, block_to_blocktype(text))
+
+
+    def test_blocktype_paragraph(self):
+        paragraph = "This is just normal text"
+        self.assertEqual(BlockType.PARAGRAPH, block_to_blocktype(paragraph))
+
+    def test_blocktype_paragraph_empty(self):
+        paragraph_empty = ""
+        self.assertEqual(BlockType.PARAGRAPH, block_to_blocktype(paragraph_empty))
+
+
+
+# heading_text = "## Some heading text here"
+# code_text = "```This is a code block```"
+# quote_text = ">This is a quote block"
+# unordered_text = "- Aragon, Gimli, Legolas, Frodo, Sam, Pippin, Merry"
+# ordered_text = "1. First line in the list \n2. Second Line"
