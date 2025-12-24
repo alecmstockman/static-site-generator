@@ -1,6 +1,19 @@
 import unittest
-from markdown import BlockType, block_to_blocktype, split_nodes_delimiter, extract_markdown_images, extract_markdown_links, split_nodes_images, split_nodes_links, text_to_textnode, markdown_to_blocks
+from markdown import (
+    BlockType,
+    block_to_blocktype, 
+    split_nodes_delimiter, 
+    extract_markdown_images, 
+    extract_markdown_links, 
+    split_nodes_images, 
+    split_nodes_links, 
+    text_to_textnode, 
+    markdown_to_blocks,
+    blocktype_to_tag,
+    )
+
 from textnode import TextNode, TextType
+from htmlnode import LeafNode, ParentNode, HTMLNode
 import textwrap
 
 class TestMarkdown(unittest.TestCase):
@@ -484,7 +497,34 @@ class TestMarkdown(unittest.TestCase):
         self.assertEqual(BlockType.PARAGRAPH, block_to_blocktype(paragraph_empty))
 
 
+# -------- BLOCK TO TAG  --------
 
+
+
+
+    def test_blocktype_paragraph(self):
+        blocktype_paragraph = "Some heading text here"
+        self.assertEqual("p", blocktype_to_tag(blocktype_paragraph))
+
+    def test_blocktype_heading(self):
+        blocktype_heading = "# Some heading text here"
+        self.assertEqual("h1", blocktype_to_tag(blocktype_heading))
+
+    def test_blocktype_code(self):
+        blocktype_code = "```Some heading text here```"
+        self.assertEqual("code", blocktype_to_tag(blocktype_code))
+
+    def test_blocktype_quote(self):
+        blocktype_quote = ">Some heading text here"
+        self.assertEqual("q", blocktype_to_tag(blocktype_quote))
+
+    def test_blocktype_unordered_list(self):
+        blocktype_unordered = "- Some heading text here \n- More text here"
+        self.assertEqual("ul", blocktype_to_tag(blocktype_unordered))  
+
+    def test_blocktype_ordered_list(self):
+        blocktype_ordered = "1. Some heading text here \n2. More text here"
+        self.assertEqual("ol", blocktype_to_tag(blocktype_ordered))  
 # heading_text = "## Some heading text here"
 # code_text = "```This is a code block```"
 # quote_text = ">This is a quote block"
