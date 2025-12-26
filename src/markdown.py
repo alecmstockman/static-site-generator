@@ -124,12 +124,12 @@ def text_to_textnode(text):
 
 
 def markdown_to_blocks(text):
-    split_lines = text.split("\n\n")
-    block = []
-    for line in split_lines:
-        if line != "":
-            block.append(line.strip())
-    return(block)
+    raw_blocks= text.split("\n\n")
+    blocks = []
+    for block in raw_blocks:
+        if block.strip() != "":
+            blocks.append(block.strip())
+    return(blocks)
 
 
 class BlockType(Enum):
@@ -137,18 +137,22 @@ class BlockType(Enum):
     HEADING = "heading"
     CODE = "code"
     QUOTE = "quote"
-    UNORDERED_LIST = "unordered_list"
     ORDERED_LIST = "ordered_list"
+    UNORDERED_LIST = "unordered_list"
+    
 
-
-def block_to_blocktype(block):
+def block_to_block_type(block):
     if block.startswith(("# ", "## ", "### ", "#### ", "##### ", "###### ")):
         return BlockType.HEADING
     
-    if block.startswith("```") and block.endswith("```"):
+    stripped = block.strip()
+    if stripped.startswith("```") and stripped.endswith("```"):
         return BlockType.CODE
     
     lines = [line for line in block.strip().split("\n") if line]
+    
+    if not lines:
+        return BlockType.PARAGRAPH
 
     if all(re.match(r"^\>", line) for line in lines):
         return BlockType.QUOTE
@@ -165,7 +169,7 @@ def block_to_blocktype(block):
 
 
 def blocktype_to_tag(block):
-    block_type = block_to_blocktype(block)
+    block_type = block_to_block_type(block)
     if block_type == BlockType.PARAGRAPH:
         tag = "p"
     if block_type == BlockType.HEADING:
@@ -182,48 +186,36 @@ def blocktype_to_tag(block):
     return tag
 
 
-def remove_block_header(block, blocktype):
-    if blocktype == BlockType.HEADING:
+def remove_block_header(block, block_type):
+    if block_type == BlockType.HEADING:
         return block.split("# ", 1)[1]
     
-    if blocktype == BlockType.QUOTE:
-        return block.split(">", 1)[1]
+    if block_type == BlockType.QUOTE:
+        lines = block.split("\n")
+        cleaned_lines = []
+        for line in lines:
+            line = line.lstrip()
+            if line.startswith(">"):
+                line = line[1:]
+            cleaned_lines.append(line.lstrip())
+        return "\n".join(cleaned_lines).strip()
     
-    if blocktype == BlockType.UNORDERED_LIST:
-        items = block.split("\n")[1:-1]
-        return "\n".join(item.split("- ", 1)[1] for item in items)
+    if block_type == BlockType.UNORDERED_LIST:
+        unordered_list = block.split("\n")
+        return "\n".join(re.sub("- ", "", item) for item in unordered_list)
     
-    if blocktype == BlockType.ORDERED_LIST:
-        ordered_list = block.split("\n")[1:-1]
+    if block_type == BlockType.ORDERED_LIST:
+        ordered_list = block.split("\n")
         return "\n".join(re.sub(r"^\d+\.\s", "", item) for item in ordered_list)
     
+    if block_type == BlockType.CODE:
+        lines = block.split("\n")
+        inner = "\n".join(lines[1:-1])
+        return inner + "\n"
+
     else:
         return block
 
-
-# print(remove_block_header(blk, BlockType.ORDERED_LIST))
-
-
-
-md = """
-## Header: The Two Towers!
-
->BLAH BLAH BLAH
-
-- List 
-"""
-
-"""
-**bolded text lies here**
-
-```CODE: One Ring to Rule Them All```
-
-This is a paragraph of text \nAnd here is another line
-"""
-
-
-
-txt = "### Header"
 
 def text_to_children(text):
     children = []
@@ -234,42 +226,50 @@ def text_to_children(text):
     return children
 
 
-
-
 def markdown_to_html_node(markdown):
     blocks = markdown_to_blocks(markdown)
     parentnodes = []
+
     for block in blocks:
         if block == "":
             continue
-        # print("block:", block)
-        blocktype = block_to_blocktype(block)
-        print("--- blocktype:", blocktype)
-        stripped_block = remove_block_header(block, blocktype)
 
-        print(f"stripped_block: {stripped_block}")
+        block_type = block_to_block_type(block)
+        # print(repr(block), block_type, "\n----------------------------")
+        stripped_block = remove_block_header(block, block_type)
         tag = blocktype_to_tag(block)
-        # print("--- Blocktype:", blocktype, "\n")
-        # print("--- Tag:", tag)
-        if blocktype != BlockType.CODE:
-            children = text_to_children(stripped_block)
-            print("---", children, "\n")
-        else:
-            code_block = text_to_textnode(stripped_block)
-            tag = 'pre'
-            # print("---", code_block)
-            children = [HTMLNode(tag='code', value=code_block[0].text, children=None, props={})]
-            # print("\n")
-        
-        parent = HTMLNode(tag, value=None, children=children,)
-        parentnodes.append(parent)
 
-    root_node = HTMLNode(tag=None, value=None, children=parentnodes)
+        if block_type not in {BlockType.CODE, BlockType.UNORDERED_LIST, BlockType.ORDERED_LIST}:
+            children = text_to_children(stripped_block)
+
+        elif block_type == BlockType.ORDERED_LIST:
+            li_nodes = []
+            for item in stripped_block.split("\n"):
+                if not item:
+                    continue
+                li_children = text_to_children(item)
+                li_nodes.append(ParentNode('li', li_children))
+            children = li_nodes
+
+        elif block_type == BlockType.UNORDERED_LIST:
+            li_nodes = []
+            for item in stripped_block.split("\n"):
+                if not item:
+                    continue
+                li_children = text_to_children(item)
+                li_nodes.append(ParentNode("li", li_children))
+            children = li_nodes
+
+        elif block_type == BlockType.CODE:
+            code_leaf = LeafNode("code", stripped_block)
+            tag = 'pre'
+            children = [code_leaf]
+        
+        parentnodes.append(ParentNode(tag, children))
+
+    root_node = ParentNode("div", parentnodes)
     return root_node
 
-
-results = markdown_to_html_node(md)
-print(results)
 
 
 

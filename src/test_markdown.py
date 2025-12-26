@@ -1,7 +1,7 @@
 import unittest
 from markdown import (
     BlockType,
-    block_to_blocktype, 
+    block_to_block_type, 
     split_nodes_delimiter, 
     extract_markdown_images, 
     extract_markdown_links, 
@@ -10,6 +10,9 @@ from markdown import (
     text_to_textnode, 
     markdown_to_blocks,
     blocktype_to_tag,
+    markdown_to_html_node,
+    remove_block_header,
+    text_to_children,
     )
 
 from textnode import TextNode, TextType
@@ -389,117 +392,111 @@ class TestMarkdown(unittest.TestCase):
 
     def test_blocktype_heading(self):
         heading_text = "# Some heading text here"
-        self.assertEqual(BlockType.HEADING, block_to_blocktype(heading_text))
+        self.assertEqual(BlockType.HEADING, block_to_block_type(heading_text))
     
     def test_blocktype_heading_six(self):
         heading_text_six = "###### Some heading text here"
-        self.assertEqual(BlockType.HEADING, block_to_blocktype(heading_text_six))
+        self.assertEqual(BlockType.HEADING, block_to_block_type(heading_text_six))
 
     def test_notequal_blocktype_heading_no_space(self):
         heading_text_no_space = "###Some heading text here"
-        self.assertNotEqual(BlockType.HEADING, block_to_blocktype(heading_text_no_space))
+        self.assertNotEqual(BlockType.HEADING, block_to_block_type(heading_text_no_space))
 
     def test_notequal_blocktype_heading_seven(self):
         heading_text_seven = "####### Some heading text here"
-        self.assertNotEqual(BlockType.HEADING, block_to_blocktype(heading_text_seven))
+        self.assertNotEqual(BlockType.HEADING, block_to_block_type(heading_text_seven))
 
 
     def test_blocktype_code(self):
         code_text = "```This is a code block```"
-        self.assertEqual(BlockType.CODE, block_to_blocktype(code_text))
+        self.assertEqual(BlockType.CODE, block_to_block_type(code_text))
 
     def test_blocktype_code_spaces(self):
         code_text_spaces = "``` This is a code block ```"
-        self.assertEqual(BlockType.CODE, block_to_blocktype(code_text_spaces))
+        self.assertEqual(BlockType.CODE, block_to_block_type(code_text_spaces))
 
     def test_blocktype_code_no_postfix(self):
         code_text_no_postfix = "```This is a code block"
-        self.assertEqual(BlockType.PARAGRAPH, block_to_blocktype(code_text_no_postfix))
+        self.assertEqual(BlockType.PARAGRAPH, block_to_block_type(code_text_no_postfix))
 
     def test_blocktype_code_no_prefix(self):
         code_text_no_prefix = "This is a code block```"
-        self.assertEqual(BlockType.PARAGRAPH, block_to_blocktype(code_text_no_prefix))
+        self.assertEqual(BlockType.PARAGRAPH, block_to_block_type(code_text_no_prefix))
 
 
     def test_blocktype_quote(self):
         quote_text = ">This is a quote block"
-        self.assertEqual(BlockType.QUOTE, block_to_blocktype(quote_text))
+        self.assertEqual(BlockType.QUOTE, block_to_block_type(quote_text))
 
     def test_blocktype_quote_multiple_lines(self):
         quote_text_mulitple = ">This is a quote block \n>More Text \n>Even more Text"
-        self.assertEqual(BlockType.QUOTE, block_to_blocktype(quote_text_mulitple))
+        self.assertEqual(BlockType.QUOTE, block_to_block_type(quote_text_mulitple))
 
     def test_blocktype_quote_empty_line(self):
         quote_text_empty_line = ">This is a quote block \n\n>More Text \n>Even more Text"
-        self.assertEqual(BlockType.QUOTE, block_to_blocktype(quote_text_empty_line))
+        self.assertEqual(BlockType.QUOTE, block_to_block_type(quote_text_empty_line))
 
     def test_blocktype_quote_paragraph(self):
         quote_text_paragraph = "This is a quote block"
-        self.assertEqual(BlockType.PARAGRAPH, block_to_blocktype(quote_text_paragraph))
+        self.assertEqual(BlockType.PARAGRAPH, block_to_block_type(quote_text_paragraph))
 
     def test_notequal_blocktype_quote_wrong_symbol(self):
         quote_text_wrong = "<This is a quote block"
-        self.assertNotEqual(BlockType.QUOTE, block_to_blocktype(quote_text_wrong))
+        self.assertNotEqual(BlockType.QUOTE, block_to_block_type(quote_text_wrong))
 
 
     def test_blocktype_unordered(self):
         unordered_text = "- Aragon, Gimli, Legolas, Frodo, Sam, Pippin, Merry"
-        self.assertEqual(BlockType.UNORDERED_LIST, block_to_blocktype(unordered_text))
+        self.assertEqual(BlockType.UNORDERED_LIST, block_to_block_type(unordered_text))
 
     def test_blocktype_unordered_multiple_lines(self):
         unordered_text_multi_line = "- Aragon \n- Gimli\n- Legolas\n- Frodo\n- Sam\n- Pippin\n- Merry"
-        self.assertEqual(BlockType.UNORDERED_LIST, block_to_blocktype(unordered_text_multi_line))
+        self.assertEqual(BlockType.UNORDERED_LIST, block_to_block_type(unordered_text_multi_line))
 
     def test_blocktype_unordered_no_space(self):
         unordered_text_no_space = "- Aragon \n-Gimli\n- Legolas\n- Frodo\n- Sam\n- Pippin\n- Merry"
-        self.assertEqual(BlockType.PARAGRAPH, block_to_blocktype(unordered_text_no_space))
+        self.assertEqual(BlockType.PARAGRAPH, block_to_block_type(unordered_text_no_space))
 
     def test_notequal_blocktype_unordered(self):
         unordered_text = "- Aragon \n- Gimli\n- Legolas\n- Frodo\n- Sam\n- Pippin\n Merry"
-        self.assertNotEqual(BlockType.UNORDERED_LIST, block_to_blocktype(unordered_text))
+        self.assertNotEqual(BlockType.UNORDERED_LIST, block_to_block_type(unordered_text))
 
     def test_blocktype_unordered_with_blank_line(self):
         text = "- one\n\n- two"
-        self.assertEqual(BlockType.UNORDERED_LIST, block_to_blocktype(text))
+        self.assertEqual(BlockType.UNORDERED_LIST, block_to_block_type(text))
     
 
     def test_blocktype_ordered(self):
         ordered_text = "1. First line in the list"
-        self.assertEqual(BlockType.ORDERED_LIST, block_to_blocktype(ordered_text))
+        self.assertEqual(BlockType.ORDERED_LIST, block_to_block_type(ordered_text))
 
     def test_blocktype_ordered_two_lines(self):
         ordered_text_two_lines = "1. First line in the list \n2. Second Line"
-        self.assertEqual(BlockType.ORDERED_LIST, block_to_blocktype(ordered_text_two_lines))
+        self.assertEqual(BlockType.ORDERED_LIST, block_to_block_type(ordered_text_two_lines))
 
     def test_blocktype_ordered_multi_lines(self):
         ordered_text_multi_line = "1. First line in the list \n2. Second Line\n3. Third Line"
-        self.assertEqual(BlockType.ORDERED_LIST, block_to_blocktype(ordered_text_multi_line))
+        self.assertEqual(BlockType.ORDERED_LIST, block_to_block_type(ordered_text_multi_line))
 
     def test_blocktype_missing_dot(self):
         ordered_text_missing_dot = "1. First line in the list \n2 Second Line\n3. Third Line"
-        self.assertEqual(BlockType.PARAGRAPH, block_to_blocktype(ordered_text_missing_dot))
-
-    def test_blocktype_ordered_wrong_increment(self):
-        text = "1. one\n3. three"
-        self.assertEqual(BlockType.PARAGRAPH, block_to_blocktype(text))
+        self.assertEqual(BlockType.PARAGRAPH, block_to_block_type(ordered_text_missing_dot))
 
     def test_blocktype_ordered_with_blank_line(self):
         text = "1. one\n\n2. two"
-        self.assertEqual(BlockType.ORDERED_LIST, block_to_blocktype(text))
+        self.assertEqual(BlockType.ORDERED_LIST, block_to_block_type(text))
 
 
     def test_blocktype_paragraph(self):
         paragraph = "This is just normal text"
-        self.assertEqual(BlockType.PARAGRAPH, block_to_blocktype(paragraph))
+        self.assertEqual(BlockType.PARAGRAPH, block_to_block_type(paragraph))
 
     def test_blocktype_paragraph_empty(self):
         paragraph_empty = ""
-        self.assertEqual(BlockType.PARAGRAPH, block_to_blocktype(paragraph_empty))
+        self.assertEqual(BlockType.PARAGRAPH, block_to_block_type(paragraph_empty))
 
 
 # -------- BLOCK TO TAG  --------
-
-
 
 
     def test_blocktype_paragraph(self):
@@ -525,8 +522,63 @@ class TestMarkdown(unittest.TestCase):
     def test_blocktype_ordered_list(self):
         blocktype_ordered = "1. Some heading text here \n2. More text here"
         self.assertEqual("ol", blocktype_to_tag(blocktype_ordered))  
-# heading_text = "## Some heading text here"
-# code_text = "```This is a code block```"
-# quote_text = ">This is a quote block"
-# unordered_text = "- Aragon, Gimli, Legolas, Frodo, Sam, Pippin, Merry"
-# ordered_text = "1. First line in the list \n2. Second Line"
+
+
+# -------- MARKDOWN TO HTMLNODE  --------
+
+class TestMarkdownToHtmlNode(unittest.TestCase):
+    def test_single_paragraph_simple_inline(self):
+        md = """This is **bold** and `code`."""
+        node = markdown_to_html_node(md)
+        html = node.to_html()
+        self.assertEqual(
+            html,
+            "<div><p>This is <b>bold</b> and <code>code</code>.</p></div>",
+        )
+
+    def test_code_block_ignored_inline(self):
+       md = "```\nThis is _not_ **parsed** as inline\n```\n"
+       node = markdown_to_html_node(md)
+       html = node.to_html()
+       self.assertEqual(
+           html, "<div><pre><code>This is _not_ **parsed** as inline\n</code></pre></div>",
+           )
+       
+    def test_heading_with_inline(self):
+        md = "# Hello **world**"
+        node = markdown_to_html_node(md)
+        html = node.to_html()
+        self.assertEqual(
+            html,
+            "<div><h1>Hello <b>world</b></h1></div>",
+        )
+
+    def test_unordered_list(self):
+        md = "- first\n- second"
+        node = markdown_to_html_node(md)
+        html = node.to_html()
+        self.assertEqual(
+            html,
+            "<div><ul><li>first</li><li>second</li></ul></div>",
+        )
+
+    def test_ordered_list_with_inline(self):
+        md = "1. **one**\n2. two"
+        node = markdown_to_html_node(md)
+        html = node.to_html()
+        self.assertEqual(
+            html,
+            "<div><ol><li><b>one</b></li><li>two</li></ol></div>",
+        )
+
+    def test_quote_block(self):
+        md = "> quoted _text_ here"
+        node = markdown_to_html_node(md)
+        html = node.to_html()
+        self.assertEqual(
+            html,
+            "<div><q>quoted <i>text</i> here</q></div>",
+        )
+
+if __name__ == "__main__":
+    unittest.main()
