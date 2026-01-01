@@ -29,9 +29,9 @@ def generate_page(from_path, template_path, dest_path, basepath):
     complete_template = (
         template_content
             .replace("{{ Title }}", title)
+            .replace("{{ Content }}", content_html)
             .replace('href="/', 'href="' + basepath)
             .replace('src="/', 'src="' + basepath)
-            .replace("{{ Content }}", content_html)
         )
 
     os.makedirs(abs_destination.parent, exist_ok=True)

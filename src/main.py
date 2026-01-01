@@ -15,6 +15,5 @@ def main():
     generate_pages_recursive("content", "template.html", "docs", basepath) 
     print("Successfully generated page")
 
-
 if __name__ == "__main__":
     main()
