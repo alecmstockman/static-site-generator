@@ -168,22 +168,21 @@ def block_to_block_type(block):
         return BlockType.PARAGRAPH
 
 
-def blocktype_to_tag(block):
-    block_type = block_to_block_type(block)
+def blocktype_to_tag(block_type):
     if block_type == BlockType.PARAGRAPH:
-        tag = "p"
-    if block_type == BlockType.HEADING:
-        block_start = block.split(" ", 1)
-        tag = f"h{block_start[0].count('#')}"
-    if block_type == BlockType.CODE:
-        tag = "code"
-    if block_type == BlockType.QUOTE:
-        tag = "q"
-    if block_type == BlockType.UNORDERED_LIST:
-        tag = "ul"
-    if block_type == BlockType.ORDERED_LIST:
-        tag = "ol"
-    return tag
+        return "p"
+    elif block_type == BlockType.HEADING:
+        return "h1"
+    elif block_type == BlockType.CODE:
+        return "code"
+    elif block_type == BlockType.QUOTE:
+        return "blockquote"
+    elif block_type == BlockType.UNORDERED_LIST:
+        return "ul"
+    elif block_type == BlockType.ORDERED_LIST:
+        return "ol"
+    else:
+        return "p"
 
 
 def remove_block_header(block, block_type):
@@ -235,9 +234,8 @@ def markdown_to_html_node(markdown):
             continue
 
         block_type = block_to_block_type(block)
-        # print(repr(block), block_type, "\n----------------------------")
         stripped_block = remove_block_header(block, block_type)
-        tag = blocktype_to_tag(block)
+        tag = blocktype_to_tag(block_type)
 
         if block_type not in {BlockType.CODE, BlockType.UNORDERED_LIST, BlockType.ORDERED_LIST}:
             children = text_to_children(stripped_block)
@@ -258,7 +256,7 @@ def markdown_to_html_node(markdown):
                     continue
                 li_children = text_to_children(item)
                 li_nodes.append(ParentNode("li", li_children))
-            children = li_nodes
+            children = li_nodes            
 
         elif block_type == BlockType.CODE:
             code_leaf = LeafNode("code", stripped_block)
@@ -269,8 +267,6 @@ def markdown_to_html_node(markdown):
 
     root_node = ParentNode("div", parentnodes)
     return root_node
-
-
 
 
 

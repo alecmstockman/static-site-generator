@@ -1,9 +1,16 @@
-from textnode import *
+from pathlib import Path
+from copystatic import copy_static
+from gencontent import generate_pages_recursive
 
 
 def main():
-    return TextNode("This is some anchor text", "Link", "http://boot.dev")
+    src = Path("static/")
+    dst = Path("public/")
+    copy_static(src, dst)
+    # print(f"Copied {src} files into {dst} directory")
+    generate_pages_recursive("content", "template.html", "public") 
+    print("Successfully generated page")
 
 
 if __name__ == "__main__":
-    print(main())
+    main()
